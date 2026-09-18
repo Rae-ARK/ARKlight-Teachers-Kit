@@ -32,9 +32,11 @@ you need.
 
 Borrowed from ARKlight's own `docs/` lifecycle model
 ([`ARKlight/docs/README.md`](https://github.com/Rae-ARK/ARKlight/blob/alpha/docs/README.md)),
-scaled down to what Noah actually needs today. Two folders for now;
-more get added only once there's real content that needs them (see
-"Adding a new doc" below).
+scaled down to what Noah actually needs today. Three folders now —
+`Implementation/` was added once the first real feature attempt
+(MiniCPM5-1B integration) needed a home that was neither an untried
+idea nor a finished design record; see "Adding a new doc" below for
+when a new folder is actually earned.
 
 ### [`docs/Foundational/`](Foundational/README.md) — permanent
 
@@ -50,6 +52,13 @@ Ideas for where Noah could go next — new concepts to teach, new
 domain components, changes to the teaching loop — that haven't been
 tried yet. Empty until there's an actual idea worth writing down;
 see that folder's own README for the rationale and format.
+
+### [`docs/Implementation/`](Implementation/README.md) — accepted, in progress
+
+Working logs for accepted ideas actually being built/tried — what was
+installed, what broke, what's confirmed, what's still open. Between
+`Proposals/` (not yet tried) and `Foundational/` (settled); see that
+folder's own README for the rationale and format.
 
 ## Adding a new doc
 

@@ -1,10 +1,15 @@
 # MiniCPM5-1B Integration
 
-Status: **environment set up, model weights pending** — decided to
-bring the GGUF file in via a `models/` directory committed/pulled into
-the repo directly, rather than fighting this sandbox's network
-allowlist. See "Where we got stuck" for why, and "Open questions /
-next steps" for the loading code once the file lands.
+Status: **environment set up (ARKlight + `llama-cpp-python`), actual
+inference not reachable from this environment at all.** Not "pending"
+— ruled out. Three independent paths to get weights here were tried
+and all hit a hard limit specific to this sandbox: live download
+(network egress blocks `huggingface.co`), git (binary too large for a
+sane repo/patch workflow, and was deliberately kept out via
+`.gitignore` anyway), and direct file upload (also size-limited here).
+See "Where we got stuck" for the full trail. What this doc can
+responsibly claim is scoped down accordingly — see "What's actually
+verified" below.
 
 ## Decision, briefly
 
@@ -142,56 +147,94 @@ the resolve URL. Two different code paths, same wall — this rules out
 a one-off glitch or a `Llama.from_pretrained`-specific bug; it's the
 sandbox's egress policy, full stop.
 
-## Open questions / next steps
+Two alternative paths were then tried and also ruled out:
 
-- [ ] **Weights arriving via `models/` directory, pulled in
-      separately** (not downloaded live from this environment — see
-      above). Once `models/MiniCPM5-1B-Q4_K_M.gguf` (or whatever the
-      actual filename turns out to be) lands, load it locally instead
-      of via `Llama.from_pretrained(...)`:
+- **Via git.** Committing the `.gguf` (~0.7GB at Q4_K_M) into the repo
+  and pulling it in was the initial plan. Resolved against: a
+  `model/` entry was added to `.gitignore` and a `models`
+  commit-then-`rm` round trip happened upstream — so the binary was
+  deliberately kept out of the repo rather than committed. Reasonable
+  call independent of the next point (repo bloat is real), but it
+  also means this path was never actually going to deliver bytes into
+  this environment.
+- **Via direct file upload.** Also hit a size limit in this
+  environment.
 
-      ```python
-      from llama_cpp import Llama
-      llm = Llama(model_path="models/MiniCPM5-1B-Q4_K_M.gguf", n_ctx=4096)
-      ```
+Net result: there is currently no path that gets MiniCPM5-1B's actual
+weights into this sandbox. This is specific to *this* environment's
+constraints (network allowlist + upload size limit), not a property
+of MiniCPM5-1B, `llama-cpp-python`, or the plan itself — a normal
+laptop or a CI runner with open internet does this in one command
+(the `Llama.from_pretrained(...)` line already written and tested
+above, error message aside, is otherwise correct and ready to run
+as-is elsewhere).
 
-      A `.gguf` file is binary and sizable (~0.7GB at Q4_K_M) — worth
-      deciding now whether it actually belongs committed to git
-      (repo bloat, git isn't built for large binaries) versus
-      `.gitignore`'d with a documented fetch step teammates run once
-      locally. Revisit this once the file is actually here; noting it
-      so it doesn't get decided by accident.
-- [ ] Confirm basic generation works once loaded, and note actual
-      RAM/latency numbers here.
-- [ ] Design the actual `evaluate`/`hint` prompt harness — few-shot
-      examples per `Foundational/TEACHING-MODEL.md`'s failure-mode
-      taxonomy (syntax/semantic/conceptual/edge-case for `evaluate`;
+## What's actually verified vs. not
+
+To keep this honest at a glance:
+
+**Verified, working:**
+- ARKlight alpha installs and builds a real site end-to-end.
+- `llama-cpp-python` installs and imports cleanly, CPU-only, no CUDA
+  bloat.
+- The exact failure mode when weights are unreachable (useful — this
+  is what "no model loaded" looks like, in case it resurfaces
+  elsewhere).
+
+**Not verified — genuinely unknown until run somewhere else:**
+- That MiniCPM5-1B actually loads and generates with
+  `llama-cpp-python` at all (plausible given both are standard/
+  compatible, but *unconfirmed* — no local test has run).
+- Real RAM/latency numbers.
+- Anything about how it performs on Noah's actual teaching tasks
+  (`evaluate`/`hint`, the failure-mode taxonomy, hallucination risk).
+  Every claim about 1B-scale challenges so far in this doc and the
+  earlier chat discussion is from published benchmarks/model cards,
+  not from anything Noah has actually run. Don't let the setup work
+  above read as "we tested this and it's fine" — it isn't tested yet.
+
+## Next steps
+
+This environment's job here is done — further progress needs a
+machine that can actually reach `huggingface.co` (or wherever the
+weights end up mirrored) and hold the file locally:
+
+- [ ] On a real dev machine: run
+      `Llama.from_pretrained(repo_id="openbmb/MiniCPM5-1B-GGUF", filename="*Q4_K_M.gguf")`
+      (or a manual download + `Llama(model_path=...)`), confirm basic
+      generation, note actual RAM/latency here.
+- [ ] Decide the weights' home for that machine — local-only and
+      `.gitignore`'d (matches the `model/` entry already in
+      `.gitignore`, modulo the naming mismatch below) is the current
+      direction; a per-developer fetch script/README note is the
+      natural companion so it's not tribal knowledge.
+- [ ] **Naming mismatch to resolve:** `.gitignore` has `model/`
+      (singular); this doc's code sample used `models/` (plural).
+      Pick one before writing an actual fetch script around it.
+- [ ] Design the `evaluate`/`hint` prompt harness — few-shot examples
+      per `Foundational/TEACHING-MODEL.md`'s failure-mode taxonomy
+      (syntax/semantic/conceptual/edge-case for `evaluate`;
       progressively-stronger-without-spoiling for `hint`), plus a
       structured output schema so results can be validated per
-      `Foundational/DATA-MODEL.md`'s "AI model role" guidance, rather
-      than trusting free-text model output directly.
-- [ ] Once the harness exists, deliberately test it against the
-      `variables` concept's likely misconceptions
-      (`Foundational/SCOPE.md`'s first milestone) and see where a 1B
-      model's weaker instruction-following actually shows up in
-      practice — collapsing distinct failure modes into a generic
-      "wrong," missing a specific misconception, etc. Record concrete
-      failures here, not just the setup story.
-- [ ] Decide whether `enable_thinking` (MiniCPM5's hybrid think/no-think
-      mode) is worth turning on for `evaluate` specifically — slower,
-      but plausibly helps with the graded-classification task; probably
-      unnecessary for lighter actions.
+      `Foundational/DATA-MODEL.md`'s "AI model role" guidance. This
+      part doesn't actually need the weights to start — the schema and
+      prompt structure can be designed now, tested once weights are
+      reachable.
+- [ ] Once weights are reachable somewhere, test the harness against
+      the `variables` concept's likely misconceptions
+      (`Foundational/SCOPE.md`'s first milestone) and record concrete
+      findings here — where a 1B model's weaker instruction-following
+      actually shows up in practice, not just what benchmarks predict.
+- [ ] Decide whether `enable_thinking` is worth the latency cost for
+      `evaluate` specifically.
 
 ## Verdict so far
 
-As a starting point: reasonable, and the repo's own instinct ("can't
-be that hard," "enough as a starting point") holds up for the parts
-we could actually test — install and runtime setup for a CPU-only 1B
-model genuinely is small and quick once you avoid the
-`transformers`+`accelerate` GPU-stack trap. What "adapting it for this
-use case" concretely requires is still ahead of us: the harness and
-prompt work above, which is a real (if bounded) piece of work, not a
-detail. Nothing found so far contradicts using MiniCPM5-1B for
-`evaluate`/`hint` — but nothing confirms it either, since actual
-inference hasn't run yet. Update the Status line at the top of this
-file once it has.
+Setup-wise: small and quick, as the repo's own instinct predicted,
+once the `transformers`+`accelerate` GPU-stack trap is avoided. But
+the actual claim under test — "MiniCPM5-1B works for this" — remains
+untested. This doc's earlier draft said "nothing found so far
+contradicts using MiniCPM5-1B... but nothing confirms it either" —
+that's still true, and now it's clear *this* environment won't be the
+one that resolves it. The harness design (above) is real, useful work
+that can proceed without weights; actually running it can't.

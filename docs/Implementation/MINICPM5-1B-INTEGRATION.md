@@ -228,6 +228,52 @@ weights end up mirrored) and hold the file locally:
 - [ ] Decide whether `enable_thinking` is worth the latency cost for
       `evaluate` specifically.
 
+## Tool calls: grounding the model in ARKlight's real CLI
+
+MiniCPM5-1B has native tool calling (MCP-compatible XML-style, exposed
+through the standard OpenAI-style `tools=` JSON schema in
+`llama-cpp-python`'s `create_chat_completion`). `noah/teaching/arklight_tools.py`
+wraps two real ARKlight alpha CLI surfaces as callable tools, so the
+model can look things up live instead of guessing from training data —
+directly following `Foundational/OVERVIEW.md`'s instruction to treat
+ARKlight's own docs/CLI as the source of truth for its current API,
+not memory of an earlier version:
+
+- **`arklight_search_component(name, near=None)`** — wraps
+  `arklight search NAME`. Component schema (required props, children
+  rules) on a hit, a "did you mean" suggestion on a miss.
+- **`arklight_search_docs(section=None, file=None)`** — wraps
+  `arklight search --retrieve-doc [section flag] [--file NAME]`.
+  Truncated to 4000 chars; the model is expected to ask again with a
+  narrower `file` rather than get the whole folder index dumped every
+  time.
+- **`arklight_help(subcommand=None)`** — wraps
+  `arklight [subcommand] --help`. Real flag names/syntax instead of
+  guessed CLI shape.
+
+All three verified working end-to-end against `arklight 0.641` (hit,
+miss, `--near`, bad section, truncation, both help forms). Two
+integration bugs/gotchas found by actually running it, not by
+inspection — both worth knowing if anyone touches this file:
+
+1. **`arklight search` exits `0` on a miss.** `returncode == 0` with
+   "No component named ... Did you mean" on stdout looks identical,
+   status-code-wise, to a hit. The wrapper checks stdout content, not
+   the exit code — don't "simplify" this later using `returncode`.
+2. **`subprocess.run(env=...)` replaces the whole environment, it
+   doesn't merge into it.** Passing just `{"ARKLIGHT_ACCEPT_LICENSE":
+   "1"}` as `env=` silently drops `PATH` too, and `arklight` stops
+   resolving at all (`FileNotFoundError`, not a license error — easy
+   to misdiagnose). Fixed by merging `{**os.environ, **_ARKLIGHT_ENV}`.
+
+**Scope note:** these tools ground ARKlight-specific questions. Noah's
+actual first teaching concept (`variables`,
+`Foundational/SCOPE.md`) is general programming, not ARKlight itself —
+so these are not wired into the `evaluate`/`hint` harness by default.
+They're here for whatever teaching action or dev workflow actually
+needs live ARKlight grounding; adding them to a harness's tool list is
+a separate, deliberate decision per action, not automatic.
+
 ## Verdict so far
 
 Setup-wise: small and quick, as the repo's own instinct predicted,

@@ -1,0 +1,597 @@
+diff --git a/README.md b/README.md
+index 62bc847..0bede5f 100644
+--- a/README.md
++++ b/README.md
+@@ -1 +1,10 @@
+ # ARKlight-Teachers-Kit
++
++**Noah** is a small teaching assistant, built as a real application on
++top of [ARKlight](https://github.com/Rae-ARK/ARKlight). It exists to
++help a student understand a concept — explain, show an example, ask a
++question, give an exercise, evaluate the attempt, adapt — not to be a
++Q&A box. It's an occasional side project, kept deliberately small.
++
++New here? Start with [`docs/`](docs/README.md) — that's the actual
++documentation index, written for first-time contributors.
+diff --git a/docs/Foundational/DATA-MODEL.md b/docs/Foundational/DATA-MODEL.md
+new file mode 100644
+index 0000000..04f4ab3
+--- /dev/null
++++ b/docs/Foundational/DATA-MODEL.md
+@@ -0,0 +1,97 @@
++# Data Model
++
++Keep these as simple, deterministic shapes until there's a
++demonstrated reason to introduce more complexity — no sophisticated
++ML model needed for v0.1.
++
++## Concept
++
++```
++Concept
++    id
++    name
++    description
++    prerequisites
++    explanations
++    examples
++    common_misconceptions
++    exercises
++    hints
++```
++
++Example:
++
++```
++Concept:
++    id: variables
++    prerequisites: []
++    explanation:
++        "A variable gives a name to a stored value."
++    examples:
++        ...
++    misconceptions:
++        ...
++    exercises:
++        ...
++```
++
++## Student state
++
++```
++StudentState
++    known_concepts
++    uncertain_concepts
++    failed_attempts
++    misconception_hypotheses
++    current_lesson
++```
++
++A useful way to represent per-concept confidence is a simple mapping:
++
++```
++concept -> confidence
++```
++
++e.g.
++
++```
++variables       -> high
++functions       -> medium
++recursion       -> low
++```
++
++This does not need to become a sophisticated model initially —
++simple, deterministic state is preferable until there's a
++demonstrated reason for more.
++
++## AI model role
++
++If an LLM is used anywhere in Noah, treat it as one component of the
++teaching system, not the entire architecture. Prefer explicit
++application state around the model rather than letting important
++state live only inside a conversation:
++
++```
++Student Input
++    |
++    v
++Teaching State
++    |
++    v
++Teaching Decision
++    |
++    v
++Model Prompt / Call
++    |
++    v
++Structured Result
++    |
++    v
++Teaching State Update
++    |
++    v
++UI
++```
++
++Where practical, model outputs should be structured and validated
++rather than trusted as-is.
+diff --git a/docs/Foundational/OVERVIEW.md b/docs/Foundational/OVERVIEW.md
+new file mode 100644
+index 0000000..60ad431
+--- /dev/null
++++ b/docs/Foundational/OVERVIEW.md
+@@ -0,0 +1,77 @@
++# Overview
++
++## What Noah is
++
++Noah is a teaching assistant designed to help a student understand a
++concept — not just answer their question. It's the companion project
++to [ARKlight](https://github.com/Rae-ARK/ARKlight), built as a real
++application on top of it: Noah owns the teaching logic and the
++student model, and ARKlight generates its UI, the same relationship
++any other ARKlight site has to the compiler.
++
++Noah is **not** a new compiler project. It is not intended to grow
++into a large AI platform, agent framework, orchestration system, or
++general-purpose educational SaaS unless that's explicitly decided
++later. If a Noah problem starts to look like it needs a compiler
++change, the default answer is "work around it in the application,"
++not "extend ARKlight."
++
++## Why this project exists
++
++Noah exists partly as a break from compiler work — something smaller
++and more contained to work on occasionally, for stress relief, rather
++than a full-time commitment. That's a real constraint on scope, not
++just flavor text: see `SCOPE.md` for what that means concretely, and
++resist expanding infrastructure before the current interaction is
++genuinely useful.
++
++## Relationship to ARKlight
++
++Conceptually:
++
++```
++Noah
++  |-- Lesson UI
++  |-- Explanation UI
++  |-- Example UI
++  |-- Exercise UI
++  |-- Feedback UI
++  `-- Progress UI
++         |
++         v
++      ARKlight
++         |
++         v
++      Generated UI
++```
++
++Noah is a real application built with ARKlight — it uses ARKlight's
++component/state/behavior model the way any other project would, and
++its domain components (`Lesson`, `Question`, `CodeExercise`, `Hint`,
++`ConceptMap`, `Progress`, ...) are things to build *with* ARKlight,
++not additions *to* it.
++
++**Important:** ARKlight is still an evolving project, and its own
++docs are the source of truth for its current API and architecture —
++not this repo's notes, which can drift. When implementing something
++that needs current ARKlight knowledge, check the actual ARKlight
++repository/docs rather than relying on memory of an earlier version.
++ARKlight's `alpha` branch specifically matters whenever "alpha
++branch" is mentioned explicitly — don't silently substitute `main`
++for it.
++
++## Development priorities
++
++In order:
++
++1. Correct educational behavior
++2. Simple architecture
++3. Maintainability
++4. Performance
++5. Cleverness
++
++Implementation decisions should still be technically sound even at
++small scale — "the framework will handle it" isn't an architectural
++explanation. When performance matters, reason from concrete things
++(data structures, memory layout, allocations, control flow, locality,
++concurrency, generated code, I/O), not vibes.
+diff --git a/docs/Foundational/README.md b/docs/Foundational/README.md
+new file mode 100644
+index 0000000..fb3005a
+--- /dev/null
++++ b/docs/Foundational/README.md
+@@ -0,0 +1,18 @@
++# Foundational
++
++The core reading for understanding what Noah is, how it teaches, and
++how it relates to ARKlight. **Not deletable** — this is the permanent
++design record for the project, updated in place rather than removed,
++mirroring how ARKlight's own `docs/Foundational/` treats its
++permanent design record.
++
++| File | Covers |
++| --- | --- |
++| [`OVERVIEW.md`](OVERVIEW.md) | What Noah is, its relationship to ARKlight, the current mindset (side project, occasional, stress relief), and where to look when you need ARKlight's own current API/architecture rather than this repo's notes. |
++| [`TEACHING-MODEL.md`](TEACHING-MODEL.md) | The core teaching loop, the design philosophy behind it ("teach, don't just answer"), Noah's explicit teaching actions, and the lesson model. |
++| [`DATA-MODEL.md`](DATA-MODEL.md) | The shapes Noah reasons about: `Concept`, `StudentState`, `Lesson` — and the AI-model role within that state (structured decisions around a model call, not state living only inside a conversation). |
++| [`SCOPE.md`](SCOPE.md) | What v0.1 actually includes, what's explicitly out of scope for now, the first subject and first milestone, and the project's success criteria. |
++
++Onboarding tip: if you're new here, read `OVERVIEW.md` first, then
++`TEACHING-MODEL.md`. `DATA-MODEL.md` and `SCOPE.md` are reference —
++come back to them once you're implementing something.
+diff --git a/docs/Foundational/SCOPE.md b/docs/Foundational/SCOPE.md
+new file mode 100644
+index 0000000..cec5aa2
+--- /dev/null
++++ b/docs/Foundational/SCOPE.md
+@@ -0,0 +1,106 @@
++# Scope
++
++## v0.1: keep it extremely small
++
++Initial capabilities:
++
++- explain a concept
++- provide an example
++- ask a question
++- generate a small exercise
++- evaluate an attempt
++- provide a hint
++- summarize what was learned
++- maintain minimal student state
++
++## Explicitly out of scope (for now)
++
++Do not build any of the following until there's a specific,
++demonstrated reason to:
++
++- multi-agent systems
++- vector databases
++- complex RAG pipelines
++- autonomous agents
++- plugin ecosystems
++- elaborate analytics
++- social features
++- accounts/authentication, unless actually required
++- distributed backend infrastructure
++- elaborate persistence
++- dozens of abstractions
++
++No fixed directory structure is required yet, either — don't create
++abstractions merely to make the tree look architectural. A rough
++starting shape might be:
++
++```
++/noah
++    concepts/
++    lessons/
++    teaching/
++    student/
++    ui/
++    main.py
++```
++
++with each part doing roughly what its name suggests (concept
++definitions, lesson sequencing, explain/hint/evaluate logic, student
++state, ARKlight UI definitions) — but this is a starting point, not a
++contract.
++
++## First subject
++
++Prefer starting with **one subject** rather than trying to teach
++everything at once. Programming fundamentals are a natural first
++choice: well-defined, easy to exercise interactively, and suitable
++for structured concept dependencies. Candidate first concepts:
++
++```
++values, variables, types, expressions, conditionals, loops,
++functions, data structures, recursion
++```
++
++Don't implement all of these immediately — start with a tiny concept
++set (e.g. just `variables`) and expand once that one works well.
++
++## First milestone
++
++Something like: **"Noah can teach one programming concept from start
++to finish."**
++
++```
++Concept: variables
++
++Noah explains variables
++    -> shows a tiny example
++    -> asks a conceptual question
++    -> gives an exercise
++    -> student submits an attempt
++    -> Noah evaluates it
++    -> Noah gives a hint or correction
++    -> Noah summarizes the concept
++```
++
++If that works well, expand to another concept. Don't expand
++infrastructure before this interaction is genuinely useful.
++
++## Success criteria
++
++Noah succeeds if:
++
++1. A student can learn something through it.
++2. The interaction is better than simply reading an answer.
++3. Noah can recognize common mistakes.
++4. Noah can adapt its explanation.
++5. The implementation remains small enough to understand.
++6. ARKlight is actually useful for building the UI.
++
++## Current mindset
++
++This project exists partly as a break from compiler work — don't
++turn every Noah problem into an opportunity to redesign ARKlight. If
++a simple solution works, use it. The purpose is to explore
++educational interaction, stateful assistance, structured knowledge,
++adaptive explanation, and practical ARKlight usage, without creating
++another large systems project.
+diff --git a/docs/Foundational/TEACHING-MODEL.md b/docs/Foundational/TEACHING-MODEL.md
+new file mode 100644
+index 0000000..6ebd0dd
+--- /dev/null
++++ b/docs/Foundational/TEACHING-MODEL.md
+@@ -0,0 +1,142 @@
++# Teaching Model
++
++## The core loop
++
++```
++Student asks / attempts something
++        |
++        v
++Noah identifies the relevant concept
++        |
++        v
++Noah explains
++        |
++        v
++Noah provides a small example
++        |
++        v
++Student attempts something
++        |
++        v
++Noah evaluates the attempt
++        |
++        v
++Noah gives feedback / hint / correction
++        |
++        v
++Noah updates its understanding of the student's state
++        |
++        v
++Next interaction adapts accordingly
++```
++
++## Design philosophy
++
++Noah should teach, not merely answer questions. Prefer:
++
++```
++explanation -> example -> guided attempt -> feedback -> reinforcement
++```
++
++over:
++
++```
++question -> answer -> done
++```
++
++The assistant should encourage the student to reason. When
++appropriate, Noah should avoid immediately revealing the final
++answer — instead offering progressively stronger hints.
++
++Noah should distinguish between:
++
++- the student doesn't know this yet
++- the student almost knows this
++- the student made a specific misconception
++- the student understands the concept but made a mechanical mistake
++- the student understands the concept
++
++Avoid treating every incorrect answer as simply "wrong" — which of
++the above it actually is should shape the response.
++
++## Noah's teaching actions
++
++A small, explicit, conceptually distinct set:
++
++| Action | Meaning |
++| --- | --- |
++| `explain` | Introduce or clarify an idea. |
++| `example` | Demonstrate the idea concretely. |
++| `question` | Test conceptual understanding. |
++| `exercise` | Require the student to produce something. |
++| `hint` | Provide guidance without immediately solving. |
++| `evaluate` | Analyze the student's attempt. |
++| `summarize` | Consolidate the current understanding. |
++
++## Lesson model
++
++A lesson, at its simplest:
++
++```
++Lesson
++    concept
++    introduction
++    explanation
++    example
++    question
++    exercise
++    feedback
++    summary
++```
++
++A typical interaction walks through these roughly in order —
++introduction, explanation, example, question, exercise, evaluation,
++hint/correction, summary — but the sequence should adapt to the
++student's responses rather than being a rigid, unskippable script.
++
++## Evaluating attempts (for programming exercises specifically)
++
++Evaluation should distinguish:
++
++- syntax error
++- semantic error
++- conceptual misunderstanding
++- edge-case failure
++- correct solution
++
++These are different failure modes and generally deserve different
++feedback, not a single generic "incorrect."
++
++## Quality bar
++
++Noah should:
++
++- avoid confidently inventing educational facts
++- distinguish uncertainty rather than asserting it doesn't exist
++- explain *why* an answer is wrong, not just that it is
++- avoid humiliating the student
++- avoid excessive verbosity
++- adapt its explanation when the first one doesn't land
++- prefer concrete examples over abstract description
++- encourage reasoning rather than short-circuiting it
++- avoid treating confidence (its own or the student's) as a proxy for
++  correctness
++
++## UX principle
++
++The UI should feel like a teacher's desk, not an AI dashboard.
++Prefer:
++
++```
++lesson -> explanation -> interaction -> feedback
++```
++
++over a giant chat box plus a wall of panels, analytics graphs, AI
++status indicators, and agent labels that don't mean anything to the
++student. At any point, the student should be able to answer, for
++themselves:
++
++- What am I learning?
++- What am I supposed to do?
++- Why was my answer incorrect?
++- What should I try next?
+diff --git a/docs/Proposals/README.md b/docs/Proposals/README.md
+new file mode 100644
+index 0000000..7c786f2
+--- /dev/null
++++ b/docs/Proposals/README.md
+@@ -0,0 +1,30 @@
++# Proposals
++
++Ideas for where Noah could go next that haven't been tried yet —
++distinct from `Foundational/`'s settled, permanent record. Mirrors
++the purpose of ARKlight's own `docs/Proposals/`, scaled down: no
++formal review process is implied here, just "written down before
++built" so an idea survives between the occasional sessions this
++project gets worked on.
++
++Nothing is filed here yet. Candidates worth writing up once someone
++picks one up, straight from `Foundational/SCOPE.md` and
++`Foundational/OVERVIEW.md`'s "possible future" notes:
++
++- A second taught concept, once `variables` (the first milestone) is
++  working end-to-end.
++- Domain components beyond the core loop — `Lesson`, `Question`,
++  `CodeExercise`, `Hint`, `ConceptMap`, `Progress` — as they're
++  actually needed, not all at once.
++- Anything that would change the core teaching loop or student-state
++  shape described in `Foundational/TEACHING-MODEL.md` /
++  `Foundational/DATA-MODEL.md`.
++
++## Adding a proposal
++
++One file per idea, named for the idea (`SOME-IDEA-PROPOSAL.md`).
++State what it's for and why, sketch the shape, and flag open
++questions — doesn't need to be exhaustive. Once it's built, fold
++anything that's still true into the relevant `Foundational/` doc and
++remove the proposal file, the same "graduate or remove" rule
++ARKlight's own `Proposals/` folder uses.
+diff --git a/docs/README.md b/docs/README.md
+new file mode 100644
+index 0000000..2b8066d
+--- /dev/null
++++ b/docs/README.md
+@@ -0,0 +1,70 @@
++# Noah Documentation
++
++This folder is the documentation index for **Noah** (`ARKlight-Teachers-Kit`)
++— a small teaching assistant, built as a real application on top of
++[ARKlight](https://github.com/Rae-ARK/ARKlight), maintained as an
++occasional side project rather than a full-time one.
++
++Start here, then follow the links below into the subfolder for what
++you need.
++
++## Philosophy
++
++- **Noah is small on purpose.** This is a side project worked on
++  occasionally, for stress relief — not a platform. Scope stays
++  deliberately tiny (`Foundational/SCOPE.md`); resist the urge to
++  add infrastructure before the current interaction is genuinely
++  useful.
++- **Teach, don't just answer.** Noah's whole point is the loop of
++  explain → example → guided attempt → feedback, not a Q&A box
++  (`Foundational/TEACHING-MODEL.md`).
++- **Noah is an application, not a compiler extension.** It *uses*
++  ARKlight to build its UI the same way any other ARKlight site
++  would; it doesn't fork or extend the compiler
++  (`Foundational/OVERVIEW.md`).
++- **This documentation exists for onboarding.** The audience is
++  beginners and first-time contributors — someone opening this repo
++  for the first time should be able to find "what is this" and
++  "where do I start" without digging through source or old chat
++  context.
++
++## Folder Guide
++
++Borrowed from ARKlight's own `docs/` lifecycle model
++([`ARKlight/docs/README.md`](https://github.com/Rae-ARK/ARKlight/blob/alpha/docs/README.md)),
++scaled down to what Noah actually needs today. Two folders for now;
++more get added only once there's real content that needs them (see
++"Adding a new doc" below).
++
++### [`docs/Foundational/`](Foundational/README.md) — permanent
++
++The core reading for understanding what Noah is, how it teaches, and
++how it relates to ARKlight. Not deletable — this is the permanent
++design record, updated in place rather than removed. Everything here
++was migrated and organized from the project's original scratch notes
++(`context.txt`, kept in the repo root for history).
++
++### [`docs/Proposals/`](Proposals/README.md) — unsettled
++
++Ideas for where Noah could go next — new concepts to teach, new
++domain components, changes to the teaching loop — that haven't been
++tried yet. Empty until there's an actual idea worth writing down;
++see that folder's own README for the rationale and format.
++
++## Adding a new doc
++
++Same two checks ARKlight's own doc tree uses:
++
++1. **Does this fact already have a home?** Search first
++   (`grep -r` the term, or skim the tables in the folder READMEs). If
++   it does, link to that file instead of restating it — copies drift
++   the moment one gets updated and the other doesn't.
++2. **Which folder matches this content's *state*?** Settled and
++   permanent → `Foundational/`. An idea, not yet tried → `Proposals/`.
++   If neither fits (e.g. Noah ships its first real feature and needs
++   a staged rollout plan, or its first version-history entry), that's
++   a sign a new folder is earned — add it then, following the same
++   pattern, not preemptively.
++
++When in doubt, keep it short and keep it friendly. The reader is
++probably new here.
